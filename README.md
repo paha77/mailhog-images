@@ -7,8 +7,10 @@ retained; Docker selects the appropriate architecture automatically.
 Based on the [existing image](https://hub.docker.com/r/paha77/mailhog-arm64v8)
 and the build/validate/publish pattern in
 [php-docker-images](https://github.com/paha77/php-docker-images).
-MailHog v1.0.1 is built from its pinned upstream commit with its vendored
-dependencies. `versions.env` owns the source and base image configuration.
+Each build resolves the latest stable MailHog release from GitHub and builds
+its exact commit with its vendored dependencies. Drafts and prereleases are
+excluded; resolution errors stop the build. `versions.env` owns the release API
+and base image configuration.
 Go and Alpine follow their current stable tags; fresh builds pull bases without
 cache. This refreshes the toolchain/OS, but does not update MailHog's vendored
 dependencies. Review those separately when maintaining the image.
@@ -47,6 +49,9 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 ```
 
 Images load as `local/mailhog:amd64` and `local/mailhog:arm64`.
+Both architectures use the same resolved release and commit, recorded in image
+labels. Use `scripts/build.sh` to resolve the release before building; the
+Dockerfile requires explicit source arguments and has no pinned fallback.
 Each check executes the target image, verifies its architecture and non-root
 user, loads the UI, sends a message through SMTP and retrieves it via the API.
 The temporary check container is removed on exit. Source is downloaded inside
@@ -54,7 +59,7 @@ Docker; no host Go, Git, Python, jq or compiler is required for builds.
 
 ## GitHub automation
 
-`.github/workflows/images.yml` builds and tests both architectures separately on
+`.github/workflows/images.yml` resolves the release once, then builds and tests both architectures separately on
 pull requests and pushes. Default-branch pushes, Monday 05:23 UTC schedules and
 manual default-branch runs publish only after both checks pass. Other branches
 and pull requests never receive registry credentials or publish images.
@@ -66,11 +71,13 @@ pinned to the same full commit SHAs as the reference workflow.
 
 Published tags:
 
-- `v1.0.1-<source-sha>-run<run-id>.<attempt>`: unique multi-platform release.
+- `v<mailhog-version>-<source-sha>-run<run-id>.<attempt>`: unique multi-platform release.
 - The release tag plus `-amd64` or `-arm64`: architecture images.
-- `v1.0.1` and `latest`: aliases promoted after the release manifest passes checks.
+- `v<mailhog-version>` and `latest`: aliases promoted after the release manifest passes checks.
 
 The run identity distinguishes scheduled refreshes at the same source commit.
+Publication reads the version and commit from the validated images and rejects
+architecture images with differing releases; it does not resolve or rebuild.
 Configure Docker Hub immutability for release tags if available. Alias updates
 are separate registry operations; a failure can leave them at different releases.
 Pin a validated release tag or digest for reproducibility.

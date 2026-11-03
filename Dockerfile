@@ -2,7 +2,7 @@
 ARG GO_IMAGE=golang:1-alpine
 ARG RUNTIME_IMAGE=alpine:3
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS builder
-ARG MAILHOG_COMMIT=0441dd494b03c9255a9b8e90e3458ebb115eacff
+ARG MAILHOG_COMMIT
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /go/src/github.com/mailhog/MailHog
@@ -12,9 +12,11 @@ RUN CGO_ENABLED=0 GO111MODULE=off GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath -o /out/MailHog .
 
 FROM ${RUNTIME_IMAGE}
-ARG MAILHOG_VERSION=1.0.1
+ARG MAILHOG_VERSION
+ARG MAILHOG_COMMIT
 LABEL org.opencontainers.image.title="MailHog" \
       org.opencontainers.image.version="${MAILHOG_VERSION}" \
+      org.opencontainers.image.revision="${MAILHOG_COMMIT}" \
       org.opencontainers.image.licenses="MIT"
 RUN apk add --no-cache ca-certificates \
     && adduser -D -u 1000 mailhog
